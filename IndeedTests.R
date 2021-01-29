@@ -27,7 +27,7 @@ safe_mine_text <- function(html_class, str_to_css){
 
 # Demonstration of the function
 safe_mine_text(sample_html, ".jobsearch-jobDescriptionText")
-safe_mine_text(sample_html, ".jobsearch-JobInfoHeader-title")+
+safe_mine_text(sample_html, ".jobsearch-JobInfoHeader-title")
 
 
 # Getting the company name, the number of reviews, and the location is sloppy
@@ -48,6 +48,73 @@ role_icl <- safe_mine_text(sample_html, ".icl-u-lg-mr--sm")
 role_area <- role_subtitles %>% str_split(paste(role_icl, collapse = "")) %>%
   unlist() %>% paste(collapse = "")
 role_org <- role_icl[[1]]
+
+
+
+
+
+
+
+indeed_search <- paste0(
+  'https://www.indeed.com/jobs?q=',
+  paste(c('data', 'analyst', 'R', 'Excel', 'Python', 'Access'),
+        collapse = '%2C+'),
+  '&l=Los+Angeles%2C+CA')
+
+indeed_search
+
+
+sesh <- html_session(indeed_search)
+
+sesh
+
+sesh %>%
+  jump_to(paste0(indeed_search, '&start=20'))
+
+
+paste0(indeed_search, paste0(indeed_search, '&start=', seq(10, 50, 10))) %>%
+  map(html_session) %>%
+  map(read_html) %>%
+  map(html_node(., css = 'a'))
+
+
+
+hrefs <- sesh %>%
+  read_html() %>%
+  html_nodes('h2 a') %>%
+  html_attr('href')
+
+
+nodeset <- sesh %>%
+  read_html() %>%
+  html_nodes('h2 a')
+
+paste0('indeed.com', hrefs)[4] %>%
+  html_session() %>%
+  read_html() %>%
+  safe_mine_text(".jobsearch-jobDescriptionText")
+
+
+test_links <- paste0('https://indeed.com', hrefs)
+
+
+test_links[6] %>%
+  read_html() %>%
+  safe_mine_text(".jobsearch-jobDescriptionText")
+
+test_links[6] %>%
+  html_session() %>%
+  follow_link(css = 'p a')
+
+
+
+
+
+
+
+
+
+
 
 
 ## Splitting the text into one-token-per-row format
@@ -99,6 +166,7 @@ some_html <- paste0("https://www.indeed.com/viewjob?jk=1ace0176ee3fbbb4&q=",
 scrape_indeed(some_html)
 
 
-new_link <- 'https://www.indeed.com/viewjob?jk=4b36413bff25cde6&tk=1ellrv8jto275800&from=serp&vjs=3'
-new_link %>% read_html() %>%
-  scrape_indeed()
+# Probably want to break up parts of the function, too long
+# one function to safe_mine_text (already working)
+# one function assemble them all together
+# one function to clean (tokenize, split up role area)
