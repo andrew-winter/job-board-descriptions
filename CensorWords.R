@@ -16,7 +16,8 @@ censor_chr <- function(strn, repn = '-', ...) {
   strn %>%
     str_replace(
       map_chr(
-        seq(nchar(strn)), ~ str_sub(strn, ., .)), repn
+        seq(nchar(strn)), ~ str_sub(strn, ., .)),
+      repn
     )
 }
 
@@ -26,6 +27,29 @@ map(some, censor_chr)
 
 fruit[1:10] %>%
   map(censor_chr)
+
+
+
+map_chr(
+  seq(nchar(fruit[1])),
+  ~ str_sub(fruit[1], ., .)
+)
+
+
+
+map_chr(
+  seq(nchar(fruit[1])),
+  ~ str_sub(fruit[1], ., . + 1)
+)
+
+
+map_chr(
+  seq(nchar(fruit[1])),
+  ~ str_replace(fruit[1], str_sub(fruit[1], ., . + 1), '--')
+)
+
+
+
 
 
 
