@@ -69,7 +69,16 @@ sesh <- html_session(indeed_search)
 sesh
 
 sesh %>%
-  jump_to(paste0(indeed_search, '&start=20'))
+  read_html() %>%
+  html_nodes("h2 a") %>%
+  html_attr("href")
+sesh %>%
+  jump_to(paste0(indeed_search, '&start=20')) %>%
+  read_html()
+
+# Not sure if this takes me to the correct link
+
+
 
 
 paste0(indeed_search, paste0(indeed_search, '&start=', seq(10, 50, 10))) %>%
@@ -85,11 +94,27 @@ hrefs <- sesh %>%
   html_attr('href')
 
 
-nodeset <- sesh %>%
+hrefs2 <- sesh %>%
+  jump_to(paste0(indeed_search, '&start=40')) %>%
   read_html() %>%
-  html_nodes('h2 a')
+  html_nodes('h2 a') %>%
+  html_attr('href')
+
 
 paste0('indeed.com', hrefs)[4] %>%
+  html_session() %>%
+  read_html() %>%
+  safe_mine_text(".jobsearch-jobDescriptionText")
+
+paste0('indeed.com', hrefs2)[6] %>%
+  html_session() %>%
+  read_html() %>%
+  safe_mine_text(".jobsearch-jobDescriptionText")
+
+# looks like jump_to actually works as expected
+# I'll confirm by looking at the decription for hrefs[6] vs hrefs2[6]
+
+paste0('indeed.com', hrefs)[6] %>%
   html_session() %>%
   read_html() %>%
   safe_mine_text(".jobsearch-jobDescriptionText")
