@@ -13,7 +13,7 @@ knitr::opts_chunk$set(echo = TRUE)
 ## Why process text in R?
 R has a huge selection of inuitive, charismatic packages. It has immediate practical use for data analysis, and it pairs well for general-purpose applications. 
 
-By organizing job postings into a tidy format, we can effectively interpret text as data, and use that data to try to improve decision-making. In this case, analyzing word choice and frequency might inform the kind of language folks like to use when evaluating candidates' experience.
+Analyzing word choice in job postings might be important for my own decision-making when it comes to roles and applications. Web scraping, organizing, and analyzing this text is easy with a few R packages.
 
 
 ```{r packages, message=FALSE}
@@ -24,85 +24,79 @@ library(tidytext)
 ```
 
 
+## Search terms
+```{r url}
+indeed_search <- paste0(
+  'https://www.indeed.com/jobs?q=',
+  paste(
+    c('data', 'analyst', 'R', 'SQL', 'Python', 'Excel'), collapse = '%2C+'),
+  '&l=Los+Angeles%2C+CA')
 
-```{r}
-base_url <- "https://www.indeed.com"
-read_html(base_url)
-
-# url for searching "R, data analyst" in Los Angeles
-search_url <- paste0(base_url, "/jobs?q=R%2C+Data+Analyst&l=Los+Angeles")
-
-test_session1 <- html_session(search_url)
-test_session1
-
-test_form1 <- html_form(test_session1)[[1]]
-# html_form gives back two forms, a GET and a POST
-
-test_form2 <- submit_form(test_session1, test_form1)
-
-test_nodeset <- test_form2 %>%
-  html_nodes("a.jobtitle")
-
-test_df <- tibble(
-  role_title = test_nodeset %>%
-    html_text("title") %>%
-    str_replace_all("\n", ""),
-  role_url = test_nodeset %>%
-    html_attr("href") %>%
-    paste0(base_url, .)
-)
-
-test_df$role_url[1] %>%
-  html_session() %>%
-
+indeed_search
 ```
 
 
-I can copy and paste this link in my browser, and Inspect Element to manually look at the HTML. **Will add pictures here as needed**
+In my experience, using more search terms yields more results on Indeed. If I supply a base url of some analysis terms that I like, I can "page through" the results to collect a bunch of postings.
 
 
+```{r html session}
+sesh <- html_session(indeed_search)
 
-```{r}
-search_nodeset <- search_url %>%
+sample_links <- sesh %>%
   read_html() %>%
-  html_nodes("a.jobtitle")
-
-# the argument for html_nodes() is a CSS selector
-# extract hyperlink elements whose class is "jobtitle"
-# the Chrome extension SelectorGadget is very useful for finding CSS selectors
-
-search_nodeset
-
-search_df <- tibble(
-  role_title = search_nodeset %>%
-    html_text("title") %>%
-    str_replace_all("\n", ""),
-  role_url = search_nodeset %>%
-    html_attr("href") %>%
-    paste0(base_url, .)
-)
-
-search_df
+  html_nodes('h2 a') %>%
+  html_attr('href') %>%
+  paste0('indeed.com', .)
 ```
 
 
-Just a little research is required for finding the CSS selectors that correspond with the info I want.
-
-
 ```{r}
-sample_html <- read_html(search_df$role_url[1])
+sesh %>%
+  jump_to(paste0(indeed_search, '&start=20')) %>%
+  read_html()
+```
 
-sample_html %>%
-  html_nodes(".jobsearch-JobInfoHeader-title") %>%
+
+## Sample nodes to find
+```{r tests}
+jobs10 <- sample_links[10] %>%
+  html_session() %>%
+  read_html()
+
+# description
+jobs10 %>%
+  html_nodes('.jobsearch-jobDescriptionText') %>%
   html_text()
+
+# role name (to censor, probably)
+jobs10 %>%
+  html_nodes('.jobsearch-JobInfoHeader-title') %>%
+  html_text()
+
+# location
+jobs10 %>%
+  html_nodes('.jobsearch-DesktopStickyContainer-companyrating+ div') %>%
+  html_text()
+
+# org name
+jobs10 %>%
+  html_nodes('.icl-u-lg-mr--sm') %>%
+  html_text()
+
+# this could alternatively, but probably safer to refer to the html tag
+"
+jobs10 %>%
+  html_nodes('div .icl-u-xs-mr--xs') %>%
+  `[[`(1) %>%
+  html_text()
+"
 ```
 
 
-Rather than copying and pasting this code, it makes sense to write a function for extracting text based on a CSS selector. While I'm at it, I'll make sure it either extracts the text safely or returns NA.
 
-
-```{r}
-safe_extract_text <- function(html_class, str_to_css){
+## Function to reduce copying and pasting
+```{r udf}
+safe_mine_text <- function(html_class, str_to_css){
   if ("xml_node" %in% class(html_class) |
       "xml_document" %in% class(html_class)) {
     html_class %>%
@@ -113,13 +107,42 @@ safe_extract_text <- function(html_class, str_to_css){
   }
 }
 
-sample_html %>%
-  safe_extract_text(".jobsearch-DesktopStickyContainer-companyrating div")
 
-sample_html %>%
-  safe_extract_text(".jobsearch-jobDescriptionText")
+"
+test_df <- tibble(
+  role_title = test_nodeset %>%
+    html_text('title') %>%
+    str_replace_all('\n', ''),
+  role_url = test_nodeset %>%
+    html_attr('href') %>%
+    paste0(base_url, .)
+)
+"
+
 ```
 
 
-This is better, but I'm still calling the same function, multiple times in a row. I'll write a function that summarizes this info.
 
+## Old, similar to how it'll be organized later
+```{r}
+search_nodeset <- indeed_search %>%
+  read_html() %>%
+  html_nodes('a.jobtitle')
+
+# the argument for html_nodes() is a CSS selector
+# extract hyperlink elements whose class is 'jobtitle'
+# the Chrome extension SelectorGadget is very useful for finding CSS selectors
+
+search_nodeset
+
+search_df <- tibble(
+  role_title = search_nodeset %>%
+    html_text('title') %>%
+    str_replace_all('\n', ''),
+  role_url = search_nodeset %>%
+    html_attr('href') %>%
+    paste0(indeed_search, .)
+)
+
+search_df
+```
