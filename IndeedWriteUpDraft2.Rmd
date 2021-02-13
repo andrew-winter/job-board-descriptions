@@ -17,7 +17,7 @@ Analyzing word choice in job postings might be important for my own decision-mak
 
 
 ```{r packages, message=FALSE}
-# load required packages
+# Load required packages
 library(tidyverse)
 library(rvest)
 library(tidytext)
@@ -36,7 +36,7 @@ indeed_search
 ```
 
 
-In my experience, using more search terms yields more results on Indeed. If I supply a base url of some analysis terms that I like, I can "page through" the results to collect a bunch of postings.
+In my experience, using more search terms yields more results on Indeed. If I supply a base url of some analysis terms that I like, I can "page through" the results to collect lots of postings.
 
 
 ```{r html session}
@@ -50,7 +50,7 @@ sample_links <- sesh %>%
 ```
 
 
-```{r}
+```{r paging through test}
 sesh %>%
   jump_to(paste0(indeed_search, '&start=20')) %>%
   read_html()
@@ -63,33 +63,31 @@ jobs10 <- sample_links[10] %>%
   html_session() %>%
   read_html()
 
-# description
+# Role description
 jobs10 %>%
   html_nodes('.jobsearch-jobDescriptionText') %>%
   html_text()
 
-# role name (to censor, probably)
+# Role name
 jobs10 %>%
   html_nodes('.jobsearch-JobInfoHeader-title') %>%
   html_text()
 
-# location
+# Location
 jobs10 %>%
   html_nodes('.jobsearch-DesktopStickyContainer-companyrating+ div') %>%
   html_text()
 
-# org name
-jobs10 %>%
-  html_nodes('.icl-u-lg-mr--sm') %>%
-  html_text()
-
-# this could alternatively, but probably safer to refer to the html tag
-"
+# Company/organization
 jobs10 %>%
   html_nodes('div .icl-u-xs-mr--xs') %>%
   `[[`(1) %>%
   html_text()
-"
+
+# Alternative org name-- this one returns reviews, sometimes
+jobs10 %>%
+  html_nodes('.icl-u-lg-mr--sm') %>%
+  html_text()
 ```
 
 
@@ -122,6 +120,63 @@ test_df <- tibble(
 ```
 
 
+## Unnesting tokens
+```{r tokens tests}
+sample_desc <- jobs10 %>%
+  safe_mine_text('.jobsearch-jobDescriptionText')
+
+sample_tbl <- tibble(txt = sample_desc)
+
+
+# Bullet points, incomplete sentences make unnesting sentences difficult
+sample_tbl %>%
+  unnest_tokens(sentence, txt, token = "sentences")
+
+# Unnesting by new lines is interesting, but maybe not useful
+sample_tbl %>%
+  unnest_tokens(line, txt, token = "regex", pattern = "\n")
+
+
+# Most likely to be useful, and relatively simple
+sample_words <- sample_tbl %>%
+  unnest_tokens(word, txt)
+
+
+# But two word ngrams are useful too, for phrases
+sample_tbl %>%
+  unnest_tokens(ngram, txt, token = "ngrams", n = 2)
+```
+
+
+## Summarizing words
+```{r}
+sample_words %>%
+  count(word, sort = TRUE)
+
+
+# Do I need to remove any stop words?
+sample_words %>%
+  inner_join(stop_words) %>%
+  count(word, sort = TRUE)
+
+```
+
+
+To limit filler words, I can use an "anti-join" to remove words like "and", "by", and "the". For some reason "r" (as in the R programming language) is included in the default stop words. I definitely want to look at mentions of R, so I'll remove this from the default stop words, along with a few others.
+
+
+## Joining words
+```{r}
+stop_words <- stop_words %>%
+  anti_join(tibble(word = c('r', 'problem', 'problems')))
+
+
+notable_stuff <- tibble(word = c('r', 'data'))
+
+sample_words %>%
+  inner_join(notable_stuff)
+
+```
 
 ## Old, similar to how it'll be organized later
 ```{r}
@@ -135,6 +190,7 @@ search_nodeset <- indeed_search %>%
 
 search_nodeset
 
+# this doesn't work exactly as intended chief
 search_df <- tibble(
   role_title = search_nodeset %>%
     html_text('title') %>%
