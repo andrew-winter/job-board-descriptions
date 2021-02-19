@@ -1,6 +1,11 @@
+library(tidyverse)
+library(tidytext)
+
 # Simple methods to read and tokenize a list of job descriptions
 
-sample_lines <- c('webtoon.txt', 'esalon.txt', 'tradesy.txt') %>%
+sample_lines <- c(
+  'wheels.txt', 'spokeo.txt', 'webtoon.txt',
+  'tradesy.txt', 'esalon.txt', 'truedata.txt') %>%
   map(read_lines)
 
 
@@ -8,6 +13,18 @@ sample_lines <- c('webtoon.txt', 'esalon.txt', 'tradesy.txt') %>%
 sample_lines[[1]] %>%
   tibble(txt = .) %>%
   unnest_tokens(word, txt)
+
+
+# Mapping functions to my list of character vectors
+# I don't remove any "stop words", so articles like "an" and "the" appear
+df_no_stops <- sample_lines %>%
+  map(~ tibble(txt = .)) %>%
+  map(unnest_tokens, word, txt) %>%
+  bind_rows(.id = 'id') %>%
+  count(id, word, sort = TRUE)
+
+df_no_stops
+
 
 
 # By default, single letters are included in the stop words
@@ -19,29 +36,17 @@ stop_words <- stop_words %>%
 
 
 
-
-
-# Joining on stop words shows that I need to manually change some stop_words
-# Counting words per document (?), so a df with id, word, n
-df_stopped <- sample_lines %>%
+# Want a data frame that counts words per document, word, id, n
+# Also accounts for stop words
+df <- sample_lines %>%
   map(~ tibble(txt = .)) %>%
   map(unnest_tokens, word, txt) %>%
   bind_rows(.id = 'id') %>%
   anti_join(stop_words) %>%
   count(id, word, sort = TRUE)
 
+df
 
-df <- sample_lines %>%
-  map(~ tibble(txt = .)) %>%
-  map(unnest_tokens, word, txt) %>%
-  bind_rows(.id = 'id') %>%
-  count(id, word, sort = TRUE)
-
-
-
-df %>%
-  bind_tf_idf(word, id, n) %>%
-  arrange(desc(tf_idf))
 
 
 
@@ -52,21 +57,73 @@ df %>%
 book_words %>%
   bind_tf_idf(word, book, n)
 
+
 df %>%
   bind_tf_idf(word, id, n) %>%
   arrange(desc(tf_idf))
 
-df_stopped %>%
+
+df_no_stops %>%
   bind_tf_idf(word, id, n) %>%
   arrange(desc(tf_idf))
 
 
 
+# Important to note that focusing only on tf_idf is going to bias towards
+# Words that are rare per document, when I might be more interested in
+# pure term frequency-- 'data' has a tf_idf of 0,  because it
+# appears in each document
+
+
+
+df %>%
+  bind_tf_idf(word, id, n) %>%
+  filter(id == '1' | id == '2') %>% 
+  arrange(desc(tf))
+
+
+df %>%
+  bind_tf_idf(word, id, n) %>%
+  filter(id == '1' | id == '2') %>% 
+  arrange(desc(n))
+
+
+wordcloud(df$word, df$n, colors = brewer.pal(6, 'Dark2'))
+
+
+four_gram  <- sample_lines %>%
+  map(~ tibble(txt = .)) %>%
+  map(~ unnest_tokens(., ngram, txt, 'ngrams', n = 4)) %>%
+  bind_rows(.id = 'id') %>%
+  count(id, ngram, sort = TRUE)
+
+four_gram_tf <- four_gram %>%
+  bind_tf_idf(ngram, id, n) %>%
+  arrange(desc(tf_idf))
+
+
+four_gram_tf$tf %>% range()
+
+
+
+four_gram_tf %>%
+  filter(id == '1' | id == '2') %>%
+ggplot(aes(x = tf, y = idf)) + 
+  geom_point(aes(color = id)) + 
+  geom_text(aes(label = ngram))
 
 
 
 
 
+# 4 word n grams
+sample_lines %>%
+  map(~ tibble(txt = .)) %>%
+  map(~ unnest_tokens(., ngram, txt, 'ngrams', n = 4)) %>%
+  bind_rows(.id = 'id') %>%
+  count(id, ngram, sort = TRUE) %>%
+  bind_tf_idf(ngram, id, n) %>%
+  arrange(desc(tf_idf))
 
 
 
@@ -74,6 +131,8 @@ sample_lines %>%
   map(~ tibble(txt = .)) %>%
   map(~ unnest_tokens(., ngram, txt, 'ngrams', n = 2)) %>%
   bind_rows(.id = 'id') %>%
-  count(id, ngram, sort = TRUE)
+  count(id, ngram, sort = TRUE) %>%
+  bind_tf_idf(ngram, id, n) %>%
+  arrange(desc(tf_idf))
 
 
